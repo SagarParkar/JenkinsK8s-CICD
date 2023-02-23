@@ -1,0 +1,50 @@
+pipeline {
+
+  environment {
+    dockerimagename = "sagarparkar/nodeapp1"
+    dockerImage = ""
+  }
+
+  agent any
+
+  stages {
+
+    stage('Checkout Source') {
+      steps {
+        git 'https://github.com/SagarParkar/JenkinsK8s-CICD.git'
+      }
+    }
+
+    stage('Build image') {
+      steps{
+        script {
+          dockerImage = docker.build dockerimagename
+        }
+      }
+    }
+
+    stage('Pushing Image') {
+      environment {
+               registryCredential = 'dockerhublogin'
+           }
+      steps{
+        script {
+          docker.withRegistry( 'https://registry.hub.docker.com', registryCredential ) {
+            dockerImage.push("latest")
+          }
+        }
+      }
+    }
+
+    stage('Deploying App to Kubernetes') {
+      steps {
+         sshagent(['forsshminikube']) {
+             sh 'scp -o StrictHostKeyChecking=no deploymentservice.yaml azureuser@20.253.219.31:/home/azureuser/'
+             sh 'ssh -o StrictHostKeyChecking=no azureuser@20.253.219.31 kubectl apply -f deploymentservice.yaml'
+         }
+      }
+    }
+
+  }
+
+}
